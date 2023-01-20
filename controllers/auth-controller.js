@@ -3,7 +3,7 @@ const mongoose = require('mongoose')
 const bcrypt = require ('bcryptjs')
 //const nodemailer = require ('nodemailer')
 const jwt = require ('jsonwebtoken')
-
+const multer = require('multer')
 exports.signin = function (req, res) {
     const {email, password} = req.body
     if (!email || !password) {
@@ -12,18 +12,19 @@ exports.signin = function (req, res) {
 
     console.log(email)
     User.findOne({email:email})
-    .then(savedUser => {
-        if(!savedUser){
-            return res.status(422).json({error: "Invalid email or password"})
-        }
-        bcrypt.compare(password,savedUser.password)
+    .then(User => {
+        /*if(savedUser!==null){
+            console.log(savedUser)
+            return res.status(422).json({error: "user not exist"})
+        }*/
+        bcrypt.compare(password,User.password)
         .then(doMatch => {
             if(doMatch){
                 
-                const token = jwt.sign({ _id: savedUser._id}, process.env.jwtSecret, {
+                const token = jwt.sign({ User}, process.env.jwtSecret, {
                     expiresIn: '45m',
                 })
-                res.status(201).json({savedUser, token})
+                res.status(201).json({ token})
             }
             else {
                 return res.status(422).json({error:"invalid email or password"})
@@ -44,7 +45,7 @@ exports.add_user = function (req, res) {
     User.findOne({email:email})
     .then((savedUser) => {
         if(savedUser){
-            return res.status(422).json({error:"user already exits with that email"})
+            return res.status(420).json({error:"user already exits with that email"})
         }
         bcrypt.hash(password, 12)
         .then(hashedpassword => {
@@ -54,10 +55,14 @@ exports.add_user = function (req, res) {
                 password:hashedpassword,
                
             })
+           
             user.save()
+            
             .then(user => {
-               
-                res.status(201).json({message: "saved succesfully"})
+                const token = jwt.sign({ _id:user._id}, process.env.jwtSecret, {
+                    expiresIn: '45m',
+                })
+                res.status(201).json({user, token})
             })
             .catch(error => {
                 res.status(422).json({error:"can't send the email", error})
@@ -68,34 +73,27 @@ exports.add_user = function (req, res) {
         console.log(err)
     })   
 }
-const PATH = './uploads';
-let storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, PATH);
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.fieldname + '-' + Date.now())
-  }
-});
-let upload = multer({
-  storage: storage
-});
-app.post('/uploadfile', upload.single('uploadedImage'), (req, res, next) => {
-    const file = req.file
-    console.log(req);
-    if (!file) {
-        const error = new Error('Please upload a file')
-        error.httpStatusCode = 400
-        return next(error)
-    }
-    res.status(200).send({
-        statusCode: 200,
-        status: 'success',
-        uploadedFile: file
-    })
 
-}, (error, req, res, next) => {
-    res.status(400).send({
-        error: error.message
-    })
-})
+exports.uploadImage = async (req, res) => {
+    const file = req.file;
+    const userId = req.body.userId ;
+    console.log(file);
+    console.log(userId);
+    let user = null ;
+    if(userId === undefined)  return res.status(400).json({msg : "please provide userId"});
+    try{
+        user = await User.findById(userId);
+    }catch(e) {
+        return res.status(400).json({msg : "user not found"});
+    }
+    
+    if (!file) {
+       return res.status(400).json({ message: 'Please upload a file.' });
+    }
+
+    user.image = file.filename ;
+    console.log(user.image)
+    user.save()
+    return res.json({ msg: 'File and user update successfully.', user});
+   
+  };

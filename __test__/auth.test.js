@@ -48,6 +48,12 @@ describe('reg', () => {
    
  
    });
+   it('good test', async () => {
+    const res = await request(app).post('/api/signup').send({ "username": 'Jan1',"email":'bb2@gbb.com',"password":'123',"role":"admin" });
+    expect(res.statusCode).toEqual(201);
+  
+
+  });
    it('bad email test', async () => {
      const res = await request(app).post('/api/login').send({ "username": 'Jan',"email":'aagmail.com',"password":'123' });
      expect(res.statusCode).toEqual(422);
